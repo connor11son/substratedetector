@@ -12,9 +12,6 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
-from PIL import Image
-from PIL import ImageFont
-from PIL import ImageDraw
 import av
 
 from MareHabitatDataset import MareHabitatDatasetInference
