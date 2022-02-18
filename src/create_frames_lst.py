@@ -2,23 +2,27 @@
 Get list of frames to pull from a video
 '''
 
-import av
+import skvideo.io
 
 def create_list(vidPath, k, outfile):
 
     vid = vidPath.split('/')[-1]
-    container = av.open(vidPath)
+    videogen = skvideo.io.vreader(vid)
 
     with open(outfile, 'w') as f:
 
         counter = 0
-        for fnum in range(container.streams.video[0].frames):
+        fnum = 0
+        for frame in videogen:
             if fnum % k == 0:
                 counter+=1
                 f.write('{}_{}\n'.format(vid.split('.')[0], '0'*(7-len(str(fnum))) + str(fnum)))
+            fnum += 1
+
     print('Wrote a total of {} frames'.format(counter))
+
 if __name__ == '__main__':
-    
+
     import argparse
     parser = argparse.ArgumentParser(
         description=__doc__)
@@ -29,4 +33,4 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    createList(args.vids_path, int(args.k), args.save_path)
+    create_list(args.vids_path, int(args.k), args.save_path)

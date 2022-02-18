@@ -1,3 +1,5 @@
+#stream
+
 import time
 import os
 import sys
@@ -12,10 +14,10 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
-import av
+import skvideo.io
 
-from .MareHabitatDataset import MareHabitatDatasetInference
-from .create_frames_lst import create_list
+from MareHabitatDataset import MareHabitatDatasetInference
+from create_frames_lst import create_list
 
 # constants
 NUM_CLASSES = 5
@@ -144,9 +146,10 @@ def initialize_model(model_name, num_classes, feature_extract, use_pretrained=Tr
 
 def save_frames_to_path(vid, fnums, save_path):   
     counter = 0
-    container = av.open(vid)
-
-    for fnum, frame in enumerate(container.decode(video=0)):
+    videogen = skvideo.io.vreader(vid)
+    fnum=-1
+    for frame in videogen:
+        fnum += 1
         if fnum not in fnums:
             continue
 
@@ -157,13 +160,8 @@ def save_frames_to_path(vid, fnums, save_path):
         
         if counter % 10 == 0:
             print('Saving frame {}'.format(counter))
-        img = frame.to_image()
-        arr = np.array(img)
-        np.save(sv_name, arr)
+        np.save(sv_name, frame)
         counter += 1
-
-    container.close()
-
     return
 
 
@@ -180,7 +178,6 @@ def initialize_transforms(input_size):
 def predict(vid, k, model_weight, batch_size, num_workers, outfile):
 
     device = torch.device("cpu")
-    print('\n\n\n\n\n\nTORCH IS AVAILABLE:::\n\n\n', torch.cuda.is_available())
     # first create list of frames and save it and theframes to tmp directory
     if os.path.exists(TMP_PATH):
         shutil.rmtree(TMP_PATH)
@@ -193,12 +190,12 @@ def predict(vid, k, model_weight, batch_size, num_workers, outfile):
     fnums = set()
     
     for id in full_ids:
-        print('\n\n\n\nHELLLLLLLOOOOOOO\n\n\n', full_ids)
         fnums.add(int(id.split('_')[-1]))
     fnums = sorted(fnums)
 
     save_frames_to_path(vid, fnums, FRAMES_HOME)
-
+    
+    print('Starting model...')
     # now create the data set, data loader, and model
     model, input_size = initialize_model(MODEL_NAME, NUM_CLASSES, FEATURE_EXTRACT, use_pretrained=True)
     model = model.to(device)
@@ -222,6 +219,7 @@ def predict(vid, k, model_weight, batch_size, num_workers, outfile):
 
     df = pd.DataFrame.from_dict(ids, orient='index')
     df = df.sort_index()
+    print('\n\n\n\n',df, '\n\n\n')
     df.to_csv(outfile, header=False)
 
     shutil.rmtree(TMP_PATH)
@@ -230,6 +228,9 @@ def predict(vid, k, model_weight, batch_size, num_workers, outfile):
 
     
 if __name__ == '__main__':
+
+    import time
+    tick = time.time()
 
     p = argparse.ArgumentParser()
     p.add_argument('--batch_size', type=int)
@@ -245,5 +246,8 @@ if __name__ == '__main__':
     k = args.k
     num_workers = args.num_workers
     model_weight = args.model_weight
+    outfile = args.outfile
 
     predict(vid, k, model_weight, batch_size, num_workers, outfile)
+    tock = time.time()
+    print('\nTime taken:{}s'.format(tock-tick))

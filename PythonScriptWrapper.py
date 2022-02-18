@@ -7,6 +7,8 @@ import logging
 import os
 import numpy as np
 
+import time
+
 # It is importing from source
 
 logging.basicConfig(filename='PythonScript.log', filemode='a', level=logging.DEBUG)
