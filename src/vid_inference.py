@@ -12,10 +12,6 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
-import av
-
-from .MareHabitatDataset import MareHabitatDatasetInference
-from .create_frames_lst import create_list
 
 # constants
 NUM_CLASSES = 5
@@ -141,32 +137,6 @@ def initialize_model(model_name, num_classes, feature_extract, use_pretrained=Tr
 
     return model_ft, input_size
 
-
-def save_frames_to_path(vid, fnums, save_path):   
-    counter = 0
-    container = av.open(vid)
-
-    for fnum, frame in enumerate(container.decode(video=0)):
-        if fnum not in fnums:
-            continue
-
-        v_id = vid.split('.')[0].split('/')[-1]
-        sv_name = os.path.join(save_path, '{}_{:07d}'.format(v_id, fnum))
-        if os.path.isfile(sv_name+'.npy'):
-            continue
-        
-        if counter % 10 == 0:
-            print('Saving frame {}'.format(counter))
-        img = frame.to_image()
-        arr = np.array(img)
-        np.save(sv_name, arr)
-        counter += 1
-
-    container.close()
-
-    return
-
-
 def initialize_transforms(input_size):
     data_transforms = transforms.Compose([
             transforms.Resize(input_size),
@@ -177,54 +147,34 @@ def initialize_transforms(input_size):
     return data_transforms
 
 
+def prepare_single_batch(model, transforms, arr):
+    '''function to return output of single image'''
+
+    if len(arr.shape != 4):
+        raise ValueError('Input array should be of dimensions (n, h, w, c)')
+    h,w,c = arr[0].shape
+    # crop out top and sides
+    arr_7575 = arr[:,int(0.25*h):, int(0.125*w):int(0.875*w),:]
+    tens = transforms(arr_7575)
+
+
+
 def predict(vid, k, model_weight, batch_size, num_workers, outfile):
 
-    device = torch.device("cpu")
-    print('\n\n\n\n\n\nTORCH IS AVAILABLE:::\n\n\n', torch.cuda.is_available())
-    # first create list of frames and save it and theframes to tmp directory
-    if os.path.exists(TMP_PATH):
-        shutil.rmtree(TMP_PATH)
-    os.makedirs(FRAMES_HOME)
+    device = torch.device('gpu' if torch.cuda.is_available() else 'cpu')
 
-    create_list(vid, k, FRAMES_LIST_HOME)
-    with open(FRAMES_LIST_HOME, 'r') as f:
-        full_ids = f.readlines()
-
-    fnums = set()
-    
-    for id in full_ids:
-        print('\n\n\n\nHELLLLLLLOOOOOOO\n\n\n', full_ids)
-        fnums.add(int(id.split('_')[-1]))
-    fnums = sorted(fnums)
-
-    save_frames_to_path(vid, fnums, FRAMES_HOME)
-
-    # now create the data set, data loader, and model
+    # now create the model and transforms
     model, input_size = initialize_model(MODEL_NAME, NUM_CLASSES, FEATURE_EXTRACT, use_pretrained=True)
     model = model.to(device)
-    model.load_state_dict(torch.load(model_weight, map_location=torch.device('cpu')))
-    data_transforms = initialize_transforms(input_size)
-    image_dataset = MareHabitatDatasetInference(FRAMES_LIST_HOME, FRAMES_HOME, data_transforms)
-    dataloader = torch.utils.data.DataLoader(image_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    model.load_state_dict(torch.load(model_weight, map_location=torch.device(device)))
+    
+    transforms = initialize_transforms()
+    for 
 
-    ids = {}
-    for samples in dataloader:
-        inputs = samples['image'].to(device)
-        outputs = model(inputs)
-        preds = torch.sigmoid(outputs)
-
-        for idx, pred in enumerate(preds):
-            ids[samples['id'][idx]] = []
-            new_preds = np.array(pred.detach().cpu())
-            for id in range(new_preds.shape[0]):
-                if new_preds[id] > THRESH:
-                    ids[samples['id'][idx]].append(IDX_TO_SUBSTRATE[id])
-
-    df = pd.DataFrame.from_dict(ids, orient='index')
+    '''df = pd.DataFrame.from_dict(ids, orient='index')
     df = df.sort_index()
-    df.to_csv(outfile, header=False)
+    df.to_csv(outfile, header=False)'''
 
-    shutil.rmtree(TMP_PATH)
 
     return
 
