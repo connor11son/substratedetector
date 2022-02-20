@@ -181,24 +181,28 @@ def predict(vid, k, model_weight, batch_size, num_workers, outfile):
 
     videogen = skvid.vreader(vid)
     counter = 0
+    global_counter = 0
     batch = torch.zeros([batch_size, 3, h, w], device='cpu')
+    ids = {}
     for frame in videogen:
-        if counter < batch_size:
+        if counter < batch_size and global_counter % k == 0:
             batch[counter] = prepare_single_image(frame, transforms)
             counter += 1
+            ids['frame_{}'.format(global_counter)] = []
+            global_counter += 1
         else:
             counter = 0
             batch = batch.to(device)
             outputs = model(batch)
-            import pdb; pdb.set_trace()
+            preds = torch.sigmoid(outputs)
+            over_thresh = np.where(np.array(preds.detach().cpu()) > THRESH)
             
-            
-
-
-    '''df = pd.DataFrame.from_dict(ids, orient='index')
+            for idx, fnum in enumerate(over_thresh[0]):
+                ids['frame_{}'.format(global_counter - batch_size + fnum)].append(IDX_TO_SUBSTRATE[over_thresh[1][idx]])
+    
+    df = pd.DataFrame.from_dict(ids, orient='index')
     df = df.sort_index()
-    df.to_csv(outfile, header=False)'''
-
+    df.to_csv(outfile, header=False)
 
     return
 
