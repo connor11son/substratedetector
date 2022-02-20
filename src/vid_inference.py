@@ -219,7 +219,7 @@ def predict(vid, k, model_weight, batch_size, num_workers, outfile):
 
     df = pd.DataFrame.from_dict(ids, orient='index')
     df = df.sort_index()
-    print('\n\n\n\n',df, '\n\n\n')
+
     df.to_csv(outfile, header=False)
 
     shutil.rmtree(TMP_PATH)
