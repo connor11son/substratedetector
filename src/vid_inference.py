@@ -1,3 +1,4 @@
+import imghdr
 import time
 import os
 import sys
@@ -12,6 +13,8 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
+import skvideo.io as skvid
+from PIL import Image
 
 # constants
 NUM_CLASSES = 5
@@ -147,29 +150,50 @@ def initialize_transforms(input_size):
     return data_transforms
 
 
-def prepare_single_batch(model, transforms, arr):
+def prepare_single_image(arr, transforms):
     '''function to return output of single image'''
 
-    if len(arr.shape != 4):
-        raise ValueError('Input array should be of dimensions (n, h, w, c)')
-    h,w,c = arr[0].shape
+    h,w,c = arr.shape
     # crop out top and sides
-    arr_7575 = arr[:,int(0.25*h):, int(0.125*w):int(0.875*w),:]
-    tens = transforms(arr_7575)
+    arr_7575 = arr[int(0.25*h):, int(0.125*w):int(0.875*w),:]
+    img = Image.fromarray(arr_7575)
+    tens = transforms(img)
 
+    return tens
 
 
 def predict(vid, k, model_weight, batch_size, num_workers, outfile):
 
-    device = torch.device('gpu' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # now create the model and transforms
     model, input_size = initialize_model(MODEL_NAME, NUM_CLASSES, FEATURE_EXTRACT, use_pretrained=True)
     model = model.to(device)
     model.load_state_dict(torch.load(model_weight, map_location=torch.device(device)))
+    transforms = initialize_transforms(input_size)
     
-    transforms = initialize_transforms()
-    for 
+    #get video data and transform one frame to see how much memory to allocate
+    metadata = skvid.ffprobe(vid)
+    _h, _w = int(metadata['video']['@height']), int(metadata['video']['@width'])
+    #import pdb; pdb.set_trace()
+    _tens = prepare_single_image(np.ones((_h,_w,3), dtype=np.uint8), transforms)
+    h, w = _tens.shape[1], _tens.shape[2]
+
+    videogen = skvid.vreader(vid)
+    counter = 0
+    batch = torch.zeros([batch_size, 3, h, w], device='cpu')
+    for frame in videogen:
+        if counter < batch_size:
+            batch[counter] = prepare_single_image(frame, transforms)
+            counter += 1
+        else:
+            counter = 0
+            batch = batch.to(device)
+            outputs = model(batch)
+            import pdb; pdb.set_trace()
+            
+            
+
 
     '''df = pd.DataFrame.from_dict(ids, orient='index')
     df = df.sort_index()
@@ -195,5 +219,6 @@ if __name__ == '__main__':
     k = args.k
     num_workers = args.num_workers
     model_weight = args.model_weight
+    outfile = args.outfile
 
     predict(vid, k, model_weight, batch_size, num_workers, outfile)
