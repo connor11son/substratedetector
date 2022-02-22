@@ -163,9 +163,9 @@ def prepare_single_image(arr, transforms):
 
 
 def predict(vid, k, model_weight, batch_size, num_workers, outfile):
-
+    tick = time.time()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+    print('Cuda is available: {}'.format(torch.cuda.is_available()))
     # now create the model and transforms
     model, input_size = initialize_model(MODEL_NAME, NUM_CLASSES, FEATURE_EXTRACT, use_pretrained=True)
     model = model.to(device)
@@ -187,6 +187,8 @@ def predict(vid, k, model_weight, batch_size, num_workers, outfile):
     batch = torch.zeros([batch_size, 3, h, w], device='cpu')
     ids = {}
     for frame in videogen:
+        if global_counter % 100 == 0:
+            print('Running inference on {}th frame'.format(global_counter))
         if counter < batch_size:
             if global_counter % k == 0:
                 batch[counter] = prepare_single_image(frame, transforms)
@@ -206,7 +208,8 @@ def predict(vid, k, model_weight, batch_size, num_workers, outfile):
     
     df = pd.DataFrame.from_dict(ids, orient='index')
     df.to_csv(outfile, header=False)
-
+    tock = time.time()
+    print('Time taken to run inference:{}s'.format(tock-tick))
     return
 
     

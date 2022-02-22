@@ -110,6 +110,7 @@ class PythonScriptWrapper(object):
         #        heatmap=np.transpose(heatmap, (1, 2, 0))
         #        input_image=np.transpose(input_image, (1, 2, 0))
         out_data_path = os.path.join(os.getcwd(), 'output.csv')
+        bq.update_mex('Running the module...')
         run_module(os.path.join(os.getcwd(), self.inputs[0]['resource_name']),1, '/module/src/model.pth', 1, 0, out_data_path )  # Path to output files HARDCODED FOR NOW
         log.info("Output image path: %s" % out_data_path)
 
@@ -123,7 +124,7 @@ class PythonScriptWrapper(object):
 
         self.bqSession.update_mex('Returning results')
 
-        bq.update_mex('Uploading Mask result')
+        bq.update_mex('Uploading result')
         self.out_image = self.upload_service(bq, out_data_path, data_type='table')
         #         log.info('Total number of slices:{}.\nNumber of slices predicted as Covid:{}.\nNumber of slices predicted as PNA: {}\nNumber of slices predicted as Normal:{}'.format(z, covid, pna, normal))
 
