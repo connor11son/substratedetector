@@ -2,7 +2,7 @@ FROM pytorch/pytorch:1.5-cuda10.1-cudnn7-runtime
 
 RUN apt-get update
 RUN apt-get install ffmpeg libsm6 libxext6  -y
-RUN pip install pandas av opencv-python
+RUN pip install pandas av opencv-python scikit-video
 RUN pip install six lxml requests==2.18.4 requests-toolbelt
 
 RUN mkdir /module

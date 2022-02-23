@@ -126,32 +126,16 @@ class PythonScriptWrapper(object):
 
         bq.update_mex('Uploading result')
         self.out_image = self.upload_service(bq, out_data_path, data_type='table')
-        #         log.info('Total number of slices:{}.\nNumber of slices predicted as Covid:{}.\nNumber of slices predicted as PNA: {}\nNumber of slices predicted as Normal:{}'.format(z, covid, pna, normal))
 
-        #         self.output_resources.append(out_xml)
+        out_xml ="""<tag name="Metadata">
+			            <tag name="Output csv" type="resource" value="%s"/>
+                    </tag>""" %(self.out_image.get('value'))
 
-        #self.output_resources = self.get_xml_data('outputs', out_xml_value=(str(self.out_image.get('value'))))
-
-        # out_imgxml = """<tag name="EdgeImage" type="image" value="%s">
-        #                 <template>
-        #                   <tag name="label" value="Edge Image" />
-        #                 </template>
-        #               </tag>""" % (str(self.out_image.get('value')))
-
-        #        out_xml = """<tag name="Metadata">
-        #                    <tag name="Filename" type="string" value="%s"/>
-        #                    <tag name="Depth" type="string" value="%s"/>
-        #                     <tag name="Covid" type="string" value="%s"/>
-        #                     <tag name="Pneumonia" type="string" value="%s"/>
-        #                     <tag name="normal" type="string" value="%s"/>
-        #                     </tag>""" % (self.image_name, str(z), str(covid), str(pna), str(normal))
-
-        #        outputs = [out_imgxml, out_xml]
-        #         outputs = [out_imgxml]
-        #log.debug(self.output_resources)
+        outputs = [out_xml]
+        log.debug(outputs)
         # save output back to BisQue
-        # for output in outputs:
-        #     self.output_resources.append(output)
+        for output in outputs:
+            self.output_resources.append(output)
 
     def setup(self):
         """
