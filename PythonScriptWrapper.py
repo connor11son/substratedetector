@@ -111,7 +111,7 @@ class PythonScriptWrapper(object):
         #        input_image=np.transpose(input_image, (1, 2, 0))
         out_data_path = os.path.join(os.getcwd(), 'output.csv')
         bq.update_mex('Running the module...')
-        run_module(os.path.join(os.getcwd(), self.inputs[0]['resource_name']),1, '/module/src/model.pth', 1, 0, out_data_path )  # Path to output files HARDCODED FOR NOW
+        run_module(os.path.join(os.getcwd(), self.inputs[0]['resource_name']),1, '/module/src/model.pth', 256, 0, out_data_path )  # Path to output files HARDCODED FOR NOW
         log.info("Output image path: %s" % out_data_path)
 
         #        img = nib.Nifti1Image(input_image*heatmap, np.eye(4))  # Save axis for data (just identity)

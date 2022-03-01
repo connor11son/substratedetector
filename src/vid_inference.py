@@ -206,6 +206,16 @@ def predict(vid, k, model_weight, batch_size, num_workers, outfile):
             for idx, fnum in enumerate(over_thresh[0]):
                 ids['frame_{}'.format(fnums[len(fnums)-batch_size+fnum])].append(IDX_TO_SUBSTRATE[over_thresh[1][idx]])
     
+    # check if images still in arr when done
+    if counter > 0:
+        last_batch = batch[:counter-1]
+        last_batch = last_batch.to(device)
+        outputs = model(last_batch)
+        preds = torch.sigmoid(outputs)
+        over_thresh = np.where(np.array(preds.detach().cpu()) > THRESH)
+        for idx, fnum in enumerate(over_thresh[0]):
+            ids['frame_{}'.format(fnums[len(fnums)-batch_size+fnum])].append(IDX_TO_SUBSTRATE[over_thresh[1][idx]])
+
     df = pd.DataFrame.from_dict(ids, orient='index')
     df.to_csv(outfile, header=False)
     tock = time.time()
