@@ -16,12 +16,11 @@
      </tag>
          
      <tag name="outputs">
-              
-          <!--tag name="CustomOutput" type="blob">
-               <template>
-                    <tag name="label" value="substrates csv"/>
-               </template>
-          </tag-->
+          <tag name="Metadata">
+            <template>
+                <tag name="label" value="Metadata" />
+            </template>
+          </tag>
      </tag>
          
      <tag name="execute_options">

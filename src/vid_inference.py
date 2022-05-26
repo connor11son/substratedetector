@@ -1,5 +1,4 @@
-#stream
-
+import imghdr
 import time
 import os
 import sys
@@ -14,10 +13,8 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from torchvision import models, transforms
-import skvideo.io
-
-from MareHabitatDataset import MareHabitatDatasetInference
-from create_frames_lst import create_list
+import skvideo.io as skvid
+from PIL import Image
 
 # constants
 NUM_CLASSES = 5
@@ -143,28 +140,6 @@ def initialize_model(model_name, num_classes, feature_extract, use_pretrained=Tr
 
     return model_ft, input_size
 
-
-def save_frames_to_path(vid, fnums, save_path):   
-    counter = 0
-    videogen = skvideo.io.vreader(vid)
-    fnum=-1
-    for frame in videogen:
-        fnum += 1
-        if fnum not in fnums:
-            continue
-
-        v_id = vid.split('.')[0].split('/')[-1]
-        sv_name = os.path.join(save_path, '{}_{:07d}'.format(v_id, fnum))
-        if os.path.isfile(sv_name+'.npy'):
-            continue
-        
-        if counter % 10 == 0:
-            print('Saving frame {}'.format(counter))
-        np.save(sv_name, frame)
-        counter += 1
-    return
-
-
 def initialize_transforms(input_size):
     data_transforms = transforms.Compose([
             transforms.Resize(input_size),
@@ -175,62 +150,90 @@ def initialize_transforms(input_size):
     return data_transforms
 
 
+def prepare_single_image(arr, transforms):
+    '''function to return output of single image'''
+
+    h,w,c = arr.shape
+    # crop out top and sides
+    arr_7575 = arr[int(0.25*h):, int(0.125*w):int(0.875*w),:]
+    img = Image.fromarray(arr_7575)
+    tens = transforms(img)
+
+    return tens
+
+
 def predict(vid, k, model_weight, batch_size, num_workers, outfile):
-
-    device = torch.device("cpu")
-    # first create list of frames and save it and theframes to tmp directory
-    if os.path.exists(TMP_PATH):
-        shutil.rmtree(TMP_PATH)
-    os.makedirs(FRAMES_HOME)
-
-    create_list(vid, k, FRAMES_LIST_HOME)
-    with open(FRAMES_LIST_HOME, 'r') as f:
-        full_ids = f.readlines()
-
-    fnums = set()
-    
-    for id in full_ids:
-        fnums.add(int(id.split('_')[-1]))
-    fnums = sorted(fnums)
-
-    save_frames_to_path(vid, fnums, FRAMES_HOME)
-    
-    print('Starting model...')
-    # now create the data set, data loader, and model
+    tick = time.time()
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print('Cuda is available: {}'.format(torch.cuda.is_available()))
+    # now create the model and transforms
     model, input_size = initialize_model(MODEL_NAME, NUM_CLASSES, FEATURE_EXTRACT, use_pretrained=True)
     model = model.to(device)
-    model.load_state_dict(torch.load(model_weight, map_location=torch.device('cpu')))
-    data_transforms = initialize_transforms(input_size)
-    image_dataset = MareHabitatDatasetInference(FRAMES_LIST_HOME, FRAMES_HOME, data_transforms)
-    dataloader = torch.utils.data.DataLoader(image_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    model.load_state_dict(torch.load(model_weight, map_location=torch.device(device)))
+    model.eval()
+    transforms = initialize_transforms(input_size)
+    
+    # get video data and transform one frame to see how much memory to allocate
+    metadata = skvid.ffprobe(vid)
+    _h, _w = int(metadata['video']['@height']), int(metadata['video']['@width'])
+    # import pdb; pdb.set_trace()
+    _tens = prepare_single_image(np.ones((_h,_w,3), dtype=np.uint8), transforms)
+    h, w = _tens.shape[1], _tens.shape[2]
 
+    videogen = skvid.vreader(vid)
+    counter = 0
+    fnums = []
+    global_counter = 0
+    batch = torch.zeros([batch_size, 3, h, w], device='cpu')
     ids = {}
-    for samples in dataloader:
-        inputs = samples['image'].to(device)
-        outputs = model(inputs)
-        preds = torch.sigmoid(outputs)
+    for frame in videogen:
+        if global_counter % 100 == 0:
+            print('Running inference on {}th frame'.format(global_counter))
+        if counter < batch_size:
+            if global_counter % k == 0:
+                batch[counter] = prepare_single_image(frame, transforms)
+                counter += 1
+                ids['frame_{}'.format(global_counter)] = []
+                fnums.append(global_counter)
+            global_counter += 1
 
-        for idx, pred in enumerate(preds):
-            ids[samples['id'][idx]] = []
-            new_preds = np.array(pred.detach().cpu())
-            for id in range(new_preds.shape[0]):
-                if new_preds[id] > THRESH:
-                    ids[samples['id'][idx]].append(IDX_TO_SUBSTRATE[id])
+        else:
+            counter = 0
+            batch = batch.to(device)
+            outputs = model(batch)
+            preds = torch.sigmoid(outputs)
+            over_thresh = np.where(np.array(preds.detach().cpu()) > THRESH)
+            with_preds = set(over_thresh[0])
+            for i in range(len(preds)):
+                if i not in with_preds:
+                    over_thresh = (np.append(over_thresh[0], i), np.append(over_thresh[1], np.argmax(preds[0].detach().cpu())))
+            for idx, fnum in enumerate(over_thresh[0]):
+                ids['frame_{}'.format(fnums[len(fnums)-batch_size+fnum])].append(IDX_TO_SUBSTRATE[over_thresh[1][idx]])
+
+    
+    # check if images still in arr when done
+    if counter > 0:
+        last_batch = batch[:counter]
+        last_batch = last_batch.to(device)
+        outputs = model(last_batch)
+        preds = torch.sigmoid(outputs)
+        preds_np = np.array(preds.detach().cpu())
+        over_thresh = np.where(preds_np > THRESH)
+        with_preds = set(over_thresh[0])
+        for i in range(len(preds)):
+            if i not in with_preds:
+                over_thresh = (np.append(over_thresh[0], i), np.append(over_thresh[1], np.argmax(preds[0].detach().cpu())))
+        for idx, fnum in enumerate(over_thresh[0]):
+            ids['frame_{}'.format(fnums[len(fnums)+ fnum - last_batch.shape[0]])].append(IDX_TO_SUBSTRATE[over_thresh[1][idx]])
 
     df = pd.DataFrame.from_dict(ids, orient='index')
-    df = df.sort_index()
-
     df.to_csv(outfile, header=False)
-
-    shutil.rmtree(TMP_PATH)
-
+    tock = time.time()
+    print('Time taken to run inference:{}s'.format(tock-tick))
     return
 
     
 if __name__ == '__main__':
-
-    import time
-    tick = time.time()
 
     p = argparse.ArgumentParser()
     p.add_argument('--batch_size', type=int)
@@ -249,5 +252,3 @@ if __name__ == '__main__':
     outfile = args.outfile
 
     predict(vid, k, model_weight, batch_size, num_workers, outfile)
-    tock = time.time()
-    print('\nTime taken:{}s'.format(tock-tick))
