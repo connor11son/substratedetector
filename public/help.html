@@ -1,14 +1,9 @@
-<h1 id="substrate-detection-module-help">Substrate Detection Module Help</h1>
-<h2 id="about-">About:</h2>
-<p>This module takes in an input video (<em>.mp4</em>) and returns the predicted substrate for each individual frame.</p>
-<h2 id="how-to-use-">How to use:</h2>
-<ol>
-<li><p>Press <em>Select Image</em> and navigate to the video you would like to predict the substrate for.</p>
-</li>
-<li><p>Press <em>Run</em> and wait for the module to finish executing (may take a while for larger videos).</p>
-</li>
-<li><p>Click on the link to the output file in the results box.</p>
-</li>
-<li><p>Once viewing the output for the csv in the BisQue csv viewer, click on <em>Download</em> on the top of the screen and download a specified format (choose &quot;Original&quot; to download only the csv).</p>
-</li>
-</ol>
+<h1>Underwater Substrate Classification</h1>
+<p>Marine Applied Research and Exploration (MARE) has collected hundreds of hours of video using their unmanned, underwater, remote-operated vehicles (ROVs). In order to better survey and understand life in California's costal waters, MARE has annotated each video with species and substrate labels. </p>
+<p>As a first step toward creating a ontext-Driven Detector for underwater species, we first implemented a method using a convolutional neural network (CNN) capable of generating temporal labels for DUSIA. A ResNet-based classification models classifies the video frame by frame.</p>
+<h2>Input</h2>
+<p>.mp4 video</p>
+<h2>Output</h2>
+<p>.csv with predicted substrate for each frame in the video</p>
+<h1>Want to know more?</h1>
+<p><a href="https://www.austinmcever.com/CDD4DUSIA" target="_blank">Check out the project here</a>.</p>

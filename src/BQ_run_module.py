@@ -1,4 +1,4 @@
-from vid_inference import *
+from .vid_inference import *
 
 def run_module(vid, k, model_weight, batch_size, num_workers, outfile):
     predict(vid, k, model_weight, batch_size, num_workers, outfile)

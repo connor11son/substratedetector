@@ -163,6 +163,7 @@ def prepare_single_image(arr, transforms):
 
 
 def predict(vid, k, model_weight, batch_size, num_workers, outfile):
+
     tick = time.time()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print('Cuda is available: {}'.format(torch.cuda.is_available()))

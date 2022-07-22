@@ -50,8 +50,8 @@
      </tag>
          
      <tag name="thumbnail" type="file" value="public/thumbnail.jpeg"/>
-            
-     <tag name="title" type="string" value="substratedetector"/>
+     <tag name="help" type="file" value="public/help.html"/>
+     <tag name="title" type="string" value="Underwater Substrate Classification"/>
          
      <tag name="authors" type="string" value="BisqueTeam"/>
          
